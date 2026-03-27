@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: f5cf96510f158544caec17ba115eb56b
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/Terrain/Grass.terrainlayer
+  uploadId: 449904

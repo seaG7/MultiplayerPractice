@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 081d1c79af6564a4bab3f1061819be67
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/Scripts/DamagePopup.cs
+  uploadId: 449904

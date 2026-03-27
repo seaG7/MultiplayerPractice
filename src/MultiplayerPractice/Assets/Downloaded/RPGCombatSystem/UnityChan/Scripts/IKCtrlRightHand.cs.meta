@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 16931e3bbabb00f478bbbe4759af8343
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/UnityChan/Scripts/IKCtrlRightHand.cs
+  uploadId: 449904

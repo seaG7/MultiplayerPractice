@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 5bf57b9e1a29163498a06bc67c7d87ee
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/Scripts/AI/BodyForce.cs
+  uploadId: 449904

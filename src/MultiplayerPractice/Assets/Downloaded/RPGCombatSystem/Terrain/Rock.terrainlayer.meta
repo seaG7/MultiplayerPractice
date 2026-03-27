@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 7ec91831b7f275042a7b6c9e9e34ca1d
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/Terrain/Rock.terrainlayer
+  uploadId: 449904

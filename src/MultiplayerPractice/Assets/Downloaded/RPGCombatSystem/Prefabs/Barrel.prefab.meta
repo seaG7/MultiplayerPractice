@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 07e0a77a896617943b6f14922adbad98
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/Prefabs/Barrel.prefab
+  uploadId: 449904

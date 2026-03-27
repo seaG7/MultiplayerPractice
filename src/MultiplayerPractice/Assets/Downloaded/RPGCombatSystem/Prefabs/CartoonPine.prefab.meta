@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5bdb4c6ce317dcb409fdf413d4f998bb
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/Prefabs/CartoonPine.prefab
+  uploadId: 449904

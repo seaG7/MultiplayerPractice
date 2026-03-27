@@ -1,0 +1,13 @@
+fileFormatVersion: 2
+guid: 8d5a0e0d58f4e4176a844a1a03976c19
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/Animators/MainCharacter.controller
+  uploadId: 449904

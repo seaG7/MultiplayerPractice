@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c6893d99d338240cd834967aa6448379
+labels:
+- UnityChan
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/UnityChan/FaceAnimation/face only mask.mask
+  uploadId: 449904

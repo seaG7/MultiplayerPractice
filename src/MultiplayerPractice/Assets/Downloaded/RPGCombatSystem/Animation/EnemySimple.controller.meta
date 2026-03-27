@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: f5701d3886b940a4aa9907cb53e7b742
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/Animation/EnemySimple.controller
+  uploadId: 449904

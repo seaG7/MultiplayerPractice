@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 427b92c0325f0354789eab535a1efcf0
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/Prefabs/KatanaEnPrefab.prefab
+  uploadId: 449904

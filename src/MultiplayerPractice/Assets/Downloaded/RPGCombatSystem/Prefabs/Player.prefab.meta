@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: aafe4acb65c454d4ab9e70d0c4a78957
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/Prefabs/Player.prefab
+  uploadId: 449904

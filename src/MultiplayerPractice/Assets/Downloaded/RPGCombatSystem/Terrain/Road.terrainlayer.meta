@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 38c9cad858112ce48a09816850f646b6
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/Terrain/Road.terrainlayer
+  uploadId: 449904

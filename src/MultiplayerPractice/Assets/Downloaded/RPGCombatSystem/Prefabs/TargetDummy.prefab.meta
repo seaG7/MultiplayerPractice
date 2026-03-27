@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: a001a4ef770dc3a44a4c30462172a058
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/Prefabs/TargetDummy.prefab
+  uploadId: 449904

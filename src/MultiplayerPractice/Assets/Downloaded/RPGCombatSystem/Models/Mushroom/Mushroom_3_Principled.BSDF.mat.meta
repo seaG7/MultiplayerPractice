@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: f812182a346ad684683d572f3c1d987c
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/Models/Mushroom/Mushroom_3_Principled.BSDF.mat
+  uploadId: 449904

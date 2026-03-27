@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 7f2971480d0702846955c17fefdd70bc
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/Models/Chest/Chest.controller
+  uploadId: 449904

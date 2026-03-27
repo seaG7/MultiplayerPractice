@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: e1e1a8c7b5afe8943b8f5d9576a46b18
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/UnityChan/Animations/Materials/eye_L1.mat
+  uploadId: 449904

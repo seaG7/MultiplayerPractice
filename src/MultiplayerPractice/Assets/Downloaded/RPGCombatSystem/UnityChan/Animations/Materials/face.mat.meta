@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 2280f869fb9e62f4bb32e11fe315c03a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/UnityChan/Animations/Materials/face.mat
+  uploadId: 449904

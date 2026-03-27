@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 1946b95d4f6929e4f8434058ae71c6d6
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/Scripts/AnimatorEvents.cs
+  uploadId: 449904

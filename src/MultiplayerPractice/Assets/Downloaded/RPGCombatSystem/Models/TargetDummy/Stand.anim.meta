@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 75881170206f460419dd404f634adc27
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197537
+  packageName: RPG Combat System
+  packageVersion: 1.0
+  assetPath: Assets/RPGCombatSystem/Models/TargetDummy/Stand.anim
+  uploadId: 449904

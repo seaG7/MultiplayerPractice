@@ -1,0 +1,15 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1045 &1
+EditorBuildSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Downloaded/RPGCombatSystem/Scenes/Environment.unity
+    guid: ecfda2817fabf9046ac5280295419a40
+  - enabled: 1
+    path: Assets/Scenes/Game.unity
+    guid: dd4f6b4e49e8aef4f9450c8b877fb266
+  m_configObjects: {}
+  m_UseUCBPForAssetBundles: 0
