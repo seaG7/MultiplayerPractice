@@ -1,5 +1,7 @@
+using FishNet.Managing.Timing;
+using FishNet.Object;
+using FishNet.Object.Synchronizing;
 using Networking;
-using Unity.Netcode;
 using UnityEngine;
 
 namespace Player
@@ -14,12 +16,11 @@ namespace Player
         [SerializeField] private int maxAmmo = 10;
         [SerializeField] private float projectileSpawnOffset = 1.2f;
 
-        private readonly NetworkVariable<int> currentAmmo =
-            new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+        private readonly SyncVar<int> currentAmmo = new(0);
 
         private NetworkPlayer networkPlayer;
         private bool localInputEnabled;
-        private double nextServerShotTime;
+        private uint nextServerShotTick;
 
         public int CurrentAmmo => currentAmmo.Value;
         public int MaxAmmo => maxAmmo;
@@ -27,19 +28,26 @@ namespace Player
         private void Awake()
         {
             networkPlayer = GetComponent<NetworkPlayer>();
+            currentAmmo.OnChange += HandleAmmoChanged;
         }
 
-        public override void OnNetworkSpawn()
+        private void OnDestroy()
         {
-            if (IsServer)
+            currentAmmo.OnChange -= HandleAmmoChanged;
+        }
+
+        public override void OnStartNetwork()
+        {
+            if (IsServerInitialized)
             {
                 currentAmmo.Value = maxAmmo;
+                nextServerShotTick = 0u;
             }
         }
 
         private void Update()
         {
-            if (!IsOwner || !localInputEnabled || !IsSpawned)
+            if (!base.IsOwner || !localInputEnabled || !IsClientInitialized)
             {
                 return;
             }
@@ -59,7 +67,7 @@ namespace Player
 
         public void RefillAmmoOnServer()
         {
-            if (!IsServer)
+            if (!IsServerInitialized)
             {
                 return;
             }
@@ -68,20 +76,14 @@ namespace Player
         }
 
         [ServerRpc]
-        private void ShootServerRpc(Vector3 position, Vector3 direction, ServerRpcParams rpcParams = default)
+        private void ShootServerRpc(Vector3 position, Vector3 direction)
         {
-            if (rpcParams.Receive.SenderClientId != OwnerClientId)
-            {
-                return;
-            }
-
             if (projectilePrefab == null || networkPlayer == null || !networkPlayer.IsAlive || currentAmmo.Value <= 0)
             {
                 return;
             }
 
-            double serverTime = NetworkManager.ServerTime.Time;
-            if (serverTime < nextServerShotTime)
+            if (TimeManager.Tick < nextServerShotTick)
             {
                 return;
             }
@@ -92,7 +94,7 @@ namespace Player
             }
 
             direction.Normalize();
-            nextServerShotTime = serverTime + cooldown;
+            nextServerShotTick = TimeManager.Tick + TimeManager.TimeToTicks(cooldown, TickRounding.RoundUp);
             currentAmmo.Value--;
 
             Vector3 spawnPosition = position + direction * projectileSpawnOffset;
@@ -100,7 +102,7 @@ namespace Player
 
             GameObject projectileInstance = Instantiate(projectilePrefab, spawnPosition, spawnRotation);
             Projectile projectile = projectileInstance.GetComponent<Projectile>();
-            NetworkObject projectileNetworkObject = projectileInstance.GetComponent<NetworkObject>();
+            FishNet.Object.NetworkObject projectileNetworkObject = projectileInstance.GetComponent<FishNet.Object.NetworkObject>();
 
             if (projectile == null || projectileNetworkObject == null)
             {
@@ -110,7 +112,12 @@ namespace Player
             }
 
             projectile.Initialize(direction);
-            projectileNetworkObject.SpawnWithOwnership(OwnerClientId);
+            ServerManager.Spawn(projectileNetworkObject, base.Owner);
+        }
+
+        private void HandleAmmoChanged(int previousValue, int newValue, bool asServer)
+        {
+            networkPlayer?.RefreshInfoLabel();
         }
     }
 }

@@ -1,5 +1,7 @@
+using FishNet;
+using FishNet.Managing;
+using FishNet.Transporting;
 using TMPro;
-using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -14,6 +16,9 @@ namespace UI
 
         private bool callbacksRegistered;
         private CanvasGroup menuCanvasGroup;
+        private NetworkManager networkManager;
+        private LocalConnectionState clientState = LocalConnectionState.Stopped;
+        private LocalConnectionState serverState = LocalConnectionState.Stopped;
 
         private void Awake()
         {
@@ -28,15 +33,27 @@ namespace UI
                 }
             }
 
-            nicknameInput.text = LocalPlayerProfile.GetNickname();
-            hostButton.onClick.AddListener(StartHost);
-            clientButton.onClick.AddListener(StartClient);
+            if (nicknameInput != null)
+            {
+                nicknameInput.text = LocalPlayerProfile.GetNickname();
+            }
+
+            if (hostButton != null)
+            {
+                hostButton.onClick.AddListener(StartHost);
+            }
+
+            if (clientButton != null)
+            {
+                clientButton.onClick.AddListener(StartClient);
+            }
         }
 
         private void OnEnable()
         {
+            ResolveNetworkManager();
             RegisterCallbacks();
-            UpdateMenuVisibility(NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening);
+            UpdateMenuVisibility(clientState != LocalConnectionState.Started && serverState != LocalConnectionState.Started);
         }
 
         private void OnDisable()
@@ -60,13 +77,20 @@ namespace UI
         public void StartHost()
         {
             SaveNickname();
-
-            if (NetworkManager.Singleton == null || NetworkManager.Singleton.IsListening)
+            ResolveNetworkManager();
+            if (networkManager == null)
             {
                 return;
             }
 
-            if (NetworkManager.Singleton.StartHost())
+            if (serverState != LocalConnectionState.Stopped || clientState != LocalConnectionState.Stopped)
+            {
+                return;
+            }
+
+            bool serverStarted = networkManager.ServerManager.StartConnection();
+            bool clientStarted = networkManager.ClientManager.StartConnection();
+            if (serverStarted && clientStarted)
             {
                 UpdateMenuVisibility(false);
             }
@@ -75,13 +99,13 @@ namespace UI
         public void StartClient()
         {
             SaveNickname();
-
-            if (NetworkManager.Singleton == null || NetworkManager.Singleton.IsListening)
+            ResolveNetworkManager();
+            if (networkManager == null || clientState != LocalConnectionState.Stopped)
             {
                 return;
             }
 
-            if (NetworkManager.Singleton.StartClient())
+            if (networkManager.ClientManager.StartConnection())
             {
                 UpdateMenuVisibility(false);
             }
@@ -94,53 +118,52 @@ namespace UI
 
         private void RegisterCallbacks()
         {
-            if (callbacksRegistered || NetworkManager.Singleton == null)
+            if (callbacksRegistered || networkManager == null)
             {
                 return;
             }
 
-            NetworkManager.Singleton.OnClientConnectedCallback += HandleClientConnected;
-            NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
-            NetworkManager.Singleton.OnServerStopped += HandleServerStopped;
+            networkManager.ServerManager.OnServerConnectionState += HandleServerConnectionState;
+            networkManager.ClientManager.OnClientConnectionState += HandleClientConnectionState;
             callbacksRegistered = true;
         }
 
         private void UnregisterCallbacks()
         {
-            if (!callbacksRegistered || NetworkManager.Singleton == null)
+            if (!callbacksRegistered || networkManager == null)
             {
                 return;
             }
 
-            NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
-            NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
-            NetworkManager.Singleton.OnServerStopped -= HandleServerStopped;
+            networkManager.ServerManager.OnServerConnectionState -= HandleServerConnectionState;
+            networkManager.ClientManager.OnClientConnectionState -= HandleClientConnectionState;
             callbacksRegistered = false;
         }
 
-        private void HandleClientConnected(ulong clientId)
+        private void HandleServerConnectionState(ServerConnectionStateArgs args)
         {
-            if (NetworkManager.Singleton == null || clientId != NetworkManager.Singleton.LocalClientId)
+            serverState = args.ConnectionState;
+            UpdateMenuVisibility(clientState != LocalConnectionState.Started && serverState != LocalConnectionState.Started);
+        }
+
+        private void HandleClientConnectionState(ClientConnectionStateArgs args)
+        {
+            clientState = args.ConnectionState;
+            UpdateMenuVisibility(clientState != LocalConnectionState.Started && serverState != LocalConnectionState.Started);
+        }
+
+        private void ResolveNetworkManager()
+        {
+            networkManager = InstanceFinder.NetworkManager ?? FindObjectOfType<NetworkManager>();
+            if (networkManager == null)
             {
+                clientState = LocalConnectionState.Stopped;
+                serverState = LocalConnectionState.Stopped;
                 return;
             }
 
-            UpdateMenuVisibility(false);
-        }
-
-        private void HandleClientDisconnected(ulong clientId)
-        {
-            if (NetworkManager.Singleton == null || clientId != NetworkManager.Singleton.LocalClientId)
-            {
-                return;
-            }
-
-            UpdateMenuVisibility(true);
-        }
-
-        private void HandleServerStopped(bool _)
-        {
-            UpdateMenuVisibility(true);
+            clientState = networkManager.TransportManager.Transport.GetConnectionState(false);
+            serverState = networkManager.TransportManager.Transport.GetConnectionState(true);
         }
 
         private void UpdateMenuVisibility(bool visible)

@@ -4,6 +4,31 @@ namespace Player
 {
     public class PlayerController : MonoBehaviour
     {
+        public struct SimulationInput
+        {
+            public Vector2 Move;
+            public float CameraYaw;
+            public bool JumpPressed;
+            public bool DashPressed;
+        }
+
+        public struct MotorState
+        {
+            public Vector3 Position;
+            public Quaternion Rotation;
+            public Quaternion VisualRotation;
+            public Vector3 MoveDirection;
+            public Vector3 Impact;
+            public Vector3 DashDirection;
+            public float FallTime;
+            public float CurrentDashTime;
+            public bool CanDash;
+            public bool CanJump;
+            public bool WasGrounded;
+            public bool Hit;
+            public bool CanMove;
+        }
+
         [HideInInspector] public CharacterController charCont;
         [HideInInspector] public Animator anim;
         public GameObject childPlayer;
@@ -35,6 +60,7 @@ namespace Player
 
         public Vector3 FacingForward => childPlayer != null ? childPlayer.transform.forward : transform.forward;
         public bool IsControllerEnabled => charCont != null && charCont.enabled;
+        public bool HasLocalControl => localInputEnabled;
 
         private void Awake()
         {
@@ -42,52 +68,117 @@ namespace Player
             soundMan = GetComponent<SoundManager>();
             anim = GetComponentInChildren<Animator>();
             currentDashTime = maxDashTime;
-            distToGround = charCont.bounds.extents.y;
+
             if (charCont != null)
             {
+                distToGround = charCont.bounds.extents.y;
                 charCont.enabled = false;
             }
         }
 
-        private void Update()
+        public void Simulate(in SimulationInput input, float delta, bool allowPresentationEvents)
         {
             if (charCont == null || !charCont.enabled)
             {
                 return;
             }
 
-            UpdateGroundState();
+            UpdateGroundState(delta, allowPresentationEvents);
 
-            if (!localInputEnabled || !canMove)
+            if (hit)
             {
-                UpdateHitRecovery();
+                UpdateHitRecovery(delta, allowPresentationEvents);
+                return;
+            }
+
+            if (!canMove)
+            {
+                moveDirection.y -= gravity * delta;
+                charCont.Move(moveDirection * delta);
                 return;
             }
 
             if (charCont.isGrounded)
             {
-                HandleGroundMovement();
+                HandleGroundMovement(input, delta, allowPresentationEvents);
             }
             else
             {
-                HandleAirMovement();
+                HandleAirMovement(input, delta);
             }
 
-            moveDirection.y -= gravity * Time.deltaTime;
-            charCont.Move(moveDirection * Time.deltaTime);
+            moveDirection.y -= gravity * delta;
+            charCont.Move(moveDirection * delta);
         }
 
-        private void UpdateGroundState()
+        public MotorState CaptureState()
         {
+            return new MotorState
+            {
+                Position = transform.position,
+                Rotation = transform.rotation,
+                VisualRotation = childPlayer != null ? childPlayer.transform.rotation : transform.rotation,
+                MoveDirection = moveDirection,
+                Impact = impact,
+                DashDirection = dashDir,
+                FallTime = fallTime,
+                CurrentDashTime = currentDashTime,
+                CanDash = canDash,
+                CanJump = canJump,
+                WasGrounded = wasGrounded,
+                Hit = hit,
+                CanMove = canMove
+            };
+        }
+
+        public void RestoreState(MotorState state)
+        {
+            bool wasEnabled = charCont != null && charCont.enabled;
+            if (charCont != null)
+            {
+                charCont.enabled = false;
+            }
+
+            transform.SetPositionAndRotation(state.Position, state.Rotation);
+            if (childPlayer != null)
+            {
+                childPlayer.transform.rotation = state.VisualRotation;
+            }
+
+            moveDirection = state.MoveDirection;
+            impact = state.Impact;
+            dashDir = state.DashDirection;
+            fallTime = state.FallTime;
+            currentDashTime = state.CurrentDashTime;
+            canDash = state.CanDash;
+            canJump = state.CanJump;
+            wasGrounded = state.WasGrounded;
+            hit = state.Hit;
+            canMove = state.CanMove;
+
+            if (charCont != null)
+            {
+                charCont.enabled = wasEnabled;
+            }
+        }
+
+        private void UpdateGroundState(float delta, bool allowPresentationEvents)
+        {
+            if (anim == null || charCont == null)
+            {
+                wasGrounded = charCont != null && charCont.isGrounded;
+                return;
+            }
+
             if (charCont.isGrounded)
             {
                 if (!wasGrounded)
                 {
                     canJump = true;
                     anim.SetBool("Jump", false);
-                    if (fallTime > 0.2f)
+                    if (allowPresentationEvents && fallTime > 0.2f)
                     {
-                        soundMan.PlaySound("Land");
+                        PlaySound("Land");
                         if (!hit)
                         {
                             anim.CrossFade("FallingEnd", 0.1f);
@@ -105,33 +196,36 @@ namespace Player
                     moveDirection.y = 0f;
                     wasGrounded = false;
                     anim.SetBool("Jump", true);
-                    anim.CrossFade("Falling", 0.2f);
+                    if (allowPresentationEvents)
+                    {
+                        anim.CrossFade("Falling", 0.2f);
+                    }
                 }
 
                 if (charCont.velocity.y < 0f)
                 {
-                    fallTime += Time.deltaTime;
+                    fallTime += delta;
                 }
             }
 
             wasGrounded = charCont.isGrounded;
         }
 
-        private void UpdateHitRecovery()
+        private void UpdateHitRecovery(float delta, bool allowPresentationEvents)
         {
-            if (!hit)
+            if (!hit || charCont == null)
             {
                 return;
             }
 
-            moveDirection.y -= gravity * Time.deltaTime;
+            moveDirection.y -= gravity * delta;
             Vector3 impactWithGravity = new Vector3(impact.x, impact.y + moveDirection.y, impact.z);
             if (impact.magnitude > 0.2f || !charCont.isGrounded)
             {
-                charCont.Move(impactWithGravity * Time.deltaTime);
+                charCont.Move(impactWithGravity * delta);
             }
 
-            impact = Vector3.Lerp(impact, Vector3.zero, 5f * Time.deltaTime);
+            impact = Vector3.Lerp(impact, Vector3.zero, 5f * delta);
             if (!charCont.isGrounded || impact.magnitude > 0.2f)
             {
                 return;
@@ -139,38 +233,35 @@ namespace Player
 
             hit = false;
             canMove = true;
-            anim.Play("Idle");
+            if (allowPresentationEvents)
+            {
+                anim?.Play("Idle");
+            }
         }
 
-        private void HandleGroundMovement()
+        private void HandleGroundMovement(in SimulationInput input, float delta, bool allowPresentationEvents)
         {
-            moveDirection = new Vector3(Input.GetAxis("Horizontal"), 0f, Input.GetAxis("Vertical"));
-            if (moveDirection.magnitude < 0.1f)
-            {
-                moveDirection = Vector3.zero;
-            }
-
-            moveDirection = Vector3.ClampMagnitude(moveDirection, 1f);
-            anim.SetFloat("Speed", moveDirection.magnitude);
+            Vector2 planarInput = Vector2.ClampMagnitude(input.Move, 1f);
+            UpdatePlanarAnimation(planarInput);
 
             if (movIndicator != null)
             {
-                movIndicator.transform.localPosition = moveDirection;
+                movIndicator.transform.localPosition = new Vector3(planarInput.x, 0f, planarInput.y);
             }
 
-            HandleDash();
-            if (currentDashTime < maxDashTime)
+            Vector3 worldMove = GetWorldMoveDirection(planarInput, input.CameraYaw);
+            if (HandleDash(worldMove, input.DashPressed, delta, allowPresentationEvents))
             {
                 return;
             }
 
-            if (moveDirection.magnitude > 0f)
+            if (worldMove.sqrMagnitude > 0.001f)
             {
-                AlignToCamera();
-                RotateVisualTowardsIndicator();
+                transform.rotation = Quaternion.Euler(0f, input.CameraYaw, 0f);
+                RotateVisualTowardsDirection(worldMove, false, delta);
             }
 
-            moveDirection = transform.TransformDirection(moveDirection) * speed;
+            moveDirection = worldMove * speed;
             moveDirection.y = -10f;
 
             if (!IsGrounded())
@@ -179,18 +270,28 @@ namespace Player
                 moveDirection.z += (1f - groundNormal.y) * groundNormal.z;
             }
 
-            if (Input.GetButtonDown("Jump") && canJump)
+            if (input.JumpPressed && canJump)
             {
                 moveDirection.y = jumpSpeed;
                 canJump = false;
-                anim.SetFloat("SpeedY", moveDirection.y);
-                anim.Play("Falling");
-                anim.SetBool("Jump", true);
-                soundMan.PlaySound("Jump");
+                if (anim != null)
+                {
+                    anim.SetFloat("SpeedY", moveDirection.y);
+                    anim.SetBool("Jump", true);
+                    if (allowPresentationEvents)
+                    {
+                        anim.Play("Falling");
+                    }
+                }
+
+                if (allowPresentationEvents)
+                {
+                    PlaySound("Jump");
+                }
             }
         }
 
-        private void HandleAirMovement()
+        private void HandleAirMovement(in SimulationInput input, float delta)
         {
             if (currentDashTime < maxDashTime)
             {
@@ -203,38 +304,39 @@ namespace Player
                 return;
             }
 
-            Vector3 moveDirectionTemp = new Vector3(Input.GetAxis("Horizontal"), 0f, Input.GetAxis("Vertical"));
-            moveDirectionTemp = Vector3.ClampMagnitude(moveDirectionTemp, 1f);
-            moveDirection = new Vector3(moveDirectionTemp.x, moveDirection.y, moveDirectionTemp.z);
+            Vector2 planarInput = Vector2.ClampMagnitude(input.Move, 1f);
+            Vector3 worldMove = GetWorldMoveDirection(planarInput, input.CameraYaw);
 
             if (movIndicator != null)
             {
-                movIndicator.transform.localPosition = new Vector3(moveDirection.x, 0f, moveDirection.z);
+                movIndicator.transform.localPosition = new Vector3(planarInput.x, 0f, planarInput.y);
             }
 
-            if (moveDirectionTemp.magnitude > 0f)
+            if (worldMove.sqrMagnitude > 0.001f)
             {
-                AlignToCamera();
-                RotateVisualTowardsIndicator();
+                transform.rotation = Quaternion.Euler(0f, input.CameraYaw, 0f);
+                RotateVisualTowardsDirection(worldMove, false, delta);
             }
 
-            moveDirection = transform.TransformDirection(moveDirection);
-            moveDirection = new Vector3(moveDirection.x * speed * 0.8f, moveDirection.y, moveDirection.z * speed * 0.8f);
+            moveDirection = new Vector3(worldMove.x * speed * 0.8f, moveDirection.y, worldMove.z * speed * 0.8f);
         }
 
-        private void HandleDash()
+        private bool HandleDash(Vector3 worldMove, bool dashPressed, float delta, bool allowPresentationEvents)
         {
-            if (Input.GetButtonDown("Dash") && canDash)
+            if (dashPressed && canDash)
             {
                 currentDashTime = 0f;
                 canDash = false;
-                anim.Play("Slide");
-                soundMan.PlaySound("Dash");
-
-                if (moveDirection != Vector3.zero)
+                if (allowPresentationEvents)
                 {
-                    dashDir = transform.TransformDirection(moveDirection).normalized;
-                    RotateVisualTowardsIndicator(true);
+                    anim?.Play("Slide");
+                    PlaySound("Dash");
+                }
+
+                if (worldMove.sqrMagnitude > 0.001f)
+                {
+                    dashDir = worldMove.normalized;
+                    RotateVisualTowardsDirection(dashDir, true, delta);
                 }
                 else
                 {
@@ -245,53 +347,51 @@ namespace Player
             if (currentDashTime >= maxDashTime)
             {
                 canDash = true;
-                return;
+                return false;
             }
 
             dashDir.y = -10f;
-            currentDashTime += Time.deltaTime;
-            charCont.Move(dashDir * Time.deltaTime * dashSpeed);
+            currentDashTime += delta;
+            charCont.Move(dashDir * delta * dashSpeed);
+            return true;
         }
 
-        private void AlignToCamera()
+        private Vector3 GetWorldMoveDirection(Vector2 planarInput, float cameraYaw)
         {
-            if (cam == null)
+            if (planarInput.sqrMagnitude <= 0.001f)
             {
-                return;
+                return Vector3.zero;
             }
 
-            Vector3 eulerAngles = charCont.transform.eulerAngles;
-            charCont.transform.rotation = Quaternion.Euler(eulerAngles.x, cam.transform.eulerAngles.y, eulerAngles.z);
+            Quaternion yawRotation = Quaternion.Euler(0f, cameraYaw, 0f);
+            return (yawRotation * new Vector3(planarInput.x, 0f, planarInput.y)).normalized;
         }
 
-        private void RotateVisualTowardsIndicator(bool snap = false)
+        private void UpdatePlanarAnimation(Vector2 planarInput)
         {
-            if (childPlayer == null || movIndicator == null)
+            if (anim != null)
+            {
+                anim.SetFloat("Speed", planarInput.magnitude);
+            }
+        }
+
+        private void RotateVisualTowardsDirection(Vector3 worldDirection, bool snap, float delta)
+        {
+            if (childPlayer == null || worldDirection.sqrMagnitude <= 0.001f)
             {
                 return;
             }
 
-            Vector3 targetPosition = new Vector3(
-                movIndicator.transform.position.x,
-                childPlayer.transform.position.y,
-                movIndicator.transform.position.z);
-
-            Vector3 lookDirection = targetPosition - childPlayer.transform.position;
-            if (lookDirection.sqrMagnitude <= 0.001f)
-            {
-                return;
-            }
-
-            Quaternion targetRotation = Quaternion.LookRotation(lookDirection);
+            Quaternion targetRotation = Quaternion.LookRotation(worldDirection.normalized, Vector3.up);
             childPlayer.transform.rotation = snap
                 ? targetRotation
-                : Quaternion.Slerp(childPlayer.transform.rotation, targetRotation, Time.deltaTime * 10f);
+                : Quaternion.Slerp(childPlayer.transform.rotation, targetRotation, delta * 10f);
         }
 
         public void AddImpact(Vector3 dir, float force)
         {
             moveDirection = Vector3.zero;
-            anim.Play("Hit");
+            anim?.Play("Hit");
 
             dir.Normalize();
             if (dir.y < 0f)
@@ -311,28 +411,24 @@ namespace Player
 
             hit = true;
             canMove = false;
-            soundMan.PlaySound("Hit");
+            PlaySound("Hit");
             currentDashTime = maxDashTime;
-            anim.SetFloat("Speed", 0f);
-            anim.GetComponent<AnimatorEvents>().DisableWeaponColl();
+            if (anim != null)
+            {
+                anim.SetFloat("Speed", 0f);
+                AnimatorEvents animatorEvents = anim.GetComponent<AnimatorEvents>();
+                if (animatorEvents != null)
+                {
+                    animatorEvents.DisableWeaponColl();
+                }
+            }
+
             AddImpact(dir, force);
         }
 
         public void SetLocalControl(bool enabled)
         {
             localInputEnabled = enabled;
-
-            if (enabled)
-            {
-                ResetMotionState();
-                return;
-            }
-
-            moveDirection = Vector3.zero;
-            impact = Vector3.zero;
-            anim.SetFloat("Speed", 0f);
-            currentDashTime = maxDashTime;
-            canDash = true;
         }
 
         public void SetControllerEnabled(bool enabled)
@@ -406,14 +502,34 @@ namespace Player
             canDash = true;
         }
 
+        public void TeleportTo(Vector3 position, Quaternion rotation)
+        {
+            SetNetworkTransform(position, rotation, true);
+            if (childPlayer != null)
+            {
+                childPlayer.transform.rotation = rotation;
+            }
+
+            ResetMotionState();
+        }
+
         public bool CanStartAttack()
         {
-            return localInputEnabled && canMove && charCont.isGrounded && !IsDashing();
+            return localInputEnabled &&
+                   canMove &&
+                   !hit &&
+                   charCont != null &&
+                   charCont.enabled &&
+                   charCont.isGrounded &&
+                   !IsDashing();
         }
 
         public void PlaySound(string soundName)
         {
-            soundMan.PlaySound(soundName);
+            if (soundMan != null)
+            {
+                soundMan.PlaySound(soundName);
+            }
         }
 
         private float DistToGround()
@@ -441,11 +557,11 @@ namespace Player
             return currentDashTime < maxDashTime;
         }
 
-        public void EnableMove(bool camMoveT)
+        public void EnableMove(bool canMoveState)
         {
             if (!hit)
             {
-                canMove = camMoveT;
+                canMove = canMoveState;
             }
         }
     }

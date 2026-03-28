@@ -1,4 +1,6 @@
-using Unity.Netcode;
+using FishNet.Connection;
+using FishNet.Managing;
+using FishNet.Object;
 using UnityEngine;
 
 namespace Networking
@@ -12,6 +14,7 @@ namespace Networking
         [SerializeField] private Transform spawnCenter;
         [SerializeField] private float spawnRadius = 3f;
         [SerializeField] private bool randomizeYaw = true;
+        [SerializeField] private bool addToDefaultScene = true;
 
         private NetworkManager networkManager;
 
@@ -21,7 +24,27 @@ namespace Networking
         {
             Instance = this;
             networkManager = GetComponent<NetworkManager>();
-            ConfigureNetworkManager();
+        }
+
+        private void OnEnable()
+        {
+            if (networkManager == null)
+            {
+                networkManager = GetComponent<NetworkManager>();
+            }
+
+            if (networkManager != null)
+            {
+                networkManager.SceneManager.OnClientLoadedStartScenes += HandleClientLoadedStartScenes;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (networkManager != null)
+            {
+                networkManager.SceneManager.OnClientLoadedStartScenes -= HandleClientLoadedStartScenes;
+            }
         }
 
         private void OnDestroy()
@@ -32,54 +55,40 @@ namespace Networking
             }
         }
 
-        private void OnEnable()
+        private void HandleClientLoadedStartScenes(NetworkConnection connection, bool asServer)
         {
-            if (networkManager == null)
-            {
-                networkManager = GetComponent<NetworkManager>();
-            }
-
-            ConfigureNetworkManager();
-            networkManager.ConnectionApprovalCallback = HandleConnectionApproval;
-        }
-
-        private void OnDisable()
-        {
-            if (networkManager != null && networkManager.ConnectionApprovalCallback == HandleConnectionApproval)
-            {
-                networkManager.ConnectionApprovalCallback = null;
-            }
-        }
-
-        private void ConfigureNetworkManager()
-        {
-            if (networkManager == null)
+            if (!asServer)
             {
                 return;
             }
 
+            SpawnPlayer(connection);
+        }
+
+        private void SpawnPlayer(NetworkConnection connection)
+        {
             if (playerPrefab == null)
             {
                 Debug.LogError("PlayerSpawnManager: Player prefab is not assigned.");
                 return;
             }
 
-            networkManager.NetworkConfig.PlayerPrefab = playerPrefab;
-            networkManager.NetworkConfig.ConnectionApproval = true;
-        }
-
-        private void HandleConnectionApproval(NetworkManager.ConnectionApprovalRequest request, NetworkManager.ConnectionApprovalResponse response)
-        {
             TryGetSpawnPose(out Vector3 spawnPosition, out Quaternion spawnRotation);
+            GameObject playerInstance = Instantiate(playerPrefab, spawnPosition, spawnRotation);
+            NetworkObject playerNetworkObject = playerInstance.GetComponent<NetworkObject>();
 
-            response.Approved = true;
-            response.CreatePlayerObject = true;
-            response.PlayerPrefabHash = null;
-            response.Position = spawnPosition;
-            response.Rotation = spawnRotation;
-            response.Pending = false;
+            if (playerNetworkObject == null)
+            {
+                Debug.LogError("PlayerSpawnManager: Player prefab must contain a FishNet NetworkObject.");
+                Destroy(playerInstance);
+                return;
+            }
 
-            Debug.Log($"Approving client {request.ClientNetworkId}. Spawning at {spawnPosition}.");
+            networkManager.ServerManager.Spawn(playerNetworkObject, connection);
+            if (addToDefaultScene)
+            {
+                networkManager.SceneManager.AddOwnerToDefaultScene(playerNetworkObject);
+            }
         }
 
         public bool TryGetSpawnPose(out Vector3 spawnPosition, out Quaternion spawnRotation)

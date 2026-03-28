@@ -1,5 +1,7 @@
 using System.Collections;
-using Unity.Netcode;
+using FishNet;
+using FishNet.Managing;
+using FishNet.Transporting;
 using UnityEngine;
 
 namespace Networking
@@ -10,6 +12,7 @@ namespace Networking
         [SerializeField] private Transform[] spawnPoints;
         [SerializeField] private float respawnDelay = 10f;
 
+        private NetworkManager networkManager;
         private bool callbacksRegistered;
         private bool initialSpawnDone;
 
@@ -25,19 +28,18 @@ namespace Networking
 
         private void OnDisable()
         {
-            if (!callbacksRegistered || NetworkManager.Singleton == null)
+            if (!callbacksRegistered || networkManager == null)
             {
                 return;
             }
 
-            NetworkManager.Singleton.OnServerStarted -= HandleServerStarted;
-            NetworkManager.Singleton.OnServerStopped -= HandleServerStopped;
+            networkManager.ServerManager.OnServerConnectionState -= HandleServerConnectionState;
             callbacksRegistered = false;
         }
 
         public void OnPickedUp(Vector3 position)
         {
-            if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+            if (networkManager == null || !networkManager.IsServerStarted)
             {
                 return;
             }
@@ -45,36 +47,41 @@ namespace Networking
             StartCoroutine(RespawnAfterDelay(position));
         }
 
-        private void HandleServerStarted()
+        private void HandleServerConnectionState(ServerConnectionStateArgs args)
         {
-            if (initialSpawnDone)
+            if (args.ConnectionState == LocalConnectionState.Started)
             {
+                if (!initialSpawnDone)
+                {
+                    initialSpawnDone = true;
+                    SpawnAll();
+                }
+
                 return;
             }
 
-            initialSpawnDone = true;
-            SpawnAll();
-        }
-
-        private void HandleServerStopped(bool _)
-        {
             initialSpawnDone = false;
         }
 
         private void RegisterCallbacks()
         {
-            if (callbacksRegistered || NetworkManager.Singleton == null)
+            if (callbacksRegistered)
             {
                 return;
             }
 
-            NetworkManager.Singleton.OnServerStarted += HandleServerStarted;
-            NetworkManager.Singleton.OnServerStopped += HandleServerStopped;
+            networkManager = InstanceFinder.NetworkManager ?? FindObjectOfType<NetworkManager>();
+            if (networkManager == null)
+            {
+                return;
+            }
+
+            networkManager.ServerManager.OnServerConnectionState += HandleServerConnectionState;
             callbacksRegistered = true;
 
-            if (NetworkManager.Singleton.IsServer)
+            if (networkManager.IsServerStarted)
             {
-                HandleServerStarted();
+                HandleServerConnectionState(new ServerConnectionStateArgs(LocalConnectionState.Started, -1));
             }
         }
 
@@ -110,7 +117,7 @@ namespace Networking
 
             GameObject pickupInstance = Instantiate(healthPickupPrefab, position, Quaternion.identity);
             HealthPickup pickup = pickupInstance.GetComponent<HealthPickup>();
-            NetworkObject pickupNetworkObject = pickupInstance.GetComponent<NetworkObject>();
+            FishNet.Object.NetworkObject pickupNetworkObject = pickupInstance.GetComponent<FishNet.Object.NetworkObject>();
 
             if (pickup == null || pickupNetworkObject == null)
             {
@@ -120,7 +127,7 @@ namespace Networking
             }
 
             pickup.Initialize(this, position);
-            pickupNetworkObject.Spawn();
+            networkManager.ServerManager.Spawn(pickupNetworkObject);
         }
     }
 }

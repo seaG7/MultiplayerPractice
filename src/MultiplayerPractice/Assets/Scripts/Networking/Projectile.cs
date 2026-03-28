@@ -1,10 +1,10 @@
-using Unity.Netcode;
+using FishNet.Object;
 using UnityEngine;
 
 namespace Networking
 {
     [DisallowMultipleComponent]
-    [RequireComponent(typeof(NetworkObject))]
+    [RequireComponent(typeof(FishNet.Object.NetworkObject))]
     public class Projectile : NetworkBehaviour
     {
         [SerializeField] private float speed = 18f;
@@ -26,17 +26,14 @@ namespace Networking
             transform.rotation = Quaternion.LookRotation(moveDirection);
         }
 
-        public override void OnNetworkSpawn()
+        public override void OnStartServer()
         {
-            if (IsServer)
-            {
-                despawnAtTime = Time.time + lifetime;
-            }
+            despawnAtTime = Time.time + lifetime;
         }
 
         private void FixedUpdate()
         {
-            if (!IsServer)
+            if (!IsServerInitialized)
             {
                 return;
             }
@@ -59,24 +56,20 @@ namespace Networking
 
         private void OnTriggerEnter(Collider other)
         {
-            if (!IsServer)
+            if (!IsServerInitialized)
             {
                 return;
             }
 
-            NetworkPlayer target = other.GetComponent<NetworkPlayer>();
-            if (target == null)
-            {
-                target = other.GetComponentInParent<NetworkPlayer>();
-            }
+            NetworkPlayer target = other.GetComponent<NetworkPlayer>() ?? other.GetComponentInParent<NetworkPlayer>();
             if (target != null)
             {
-                if (target.OwnerClientId == OwnerClientId || !target.IsAlive)
+                if (target.OwnerId == OwnerId || !target.IsAlive)
                 {
                     return;
                 }
 
-                if (target.TryApplyDamageOnServer(damage, OwnerClientId, moveDirection))
+                if (target.TryApplyDamageOnServer(damage, OwnerId, moveDirection))
                 {
                     DespawnProjectile();
                 }
@@ -94,7 +87,7 @@ namespace Networking
         {
             if (NetworkObject != null && NetworkObject.IsSpawned)
             {
-                NetworkObject.Despawn(true);
+                ServerManager.Despawn(NetworkObject);
                 return;
             }
 

@@ -1,10 +1,10 @@
-using Unity.Netcode;
+using FishNet.Object;
 using UnityEngine;
 
 namespace Networking
 {
     [DisallowMultipleComponent]
-    [RequireComponent(typeof(NetworkObject))]
+    [RequireComponent(typeof(FishNet.Object.NetworkObject))]
     public class HealthPickup : NetworkBehaviour
     {
         [SerializeField] private int healAmount = 40;
@@ -20,7 +20,7 @@ namespace Networking
 
         private void OnTriggerEnter(Collider other)
         {
-            if (!IsServer)
+            if (!IsServerInitialized)
             {
                 return;
             }
@@ -37,7 +37,7 @@ namespace Networking
             }
 
             pickupManager?.OnPickedUp(spawnPosition);
-            NetworkObject.Despawn(true);
+            ServerManager.Despawn(NetworkObject);
         }
     }
 }
