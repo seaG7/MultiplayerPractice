@@ -341,7 +341,7 @@ namespace FishNet.Object
         [MakePublic]
         internal void ClearReplicateCache_Internal<T, T2>(BasicQueue<ReplicateDataContainer<T>> replicatesQueue, RingBuffer<ReplicateDataContainer<T>> replicatesHistory, RingBuffer<LocalReconcile<T2>> reconcilesHistory, ref T lastReadReplicate, ref T2 lastReadReconcile) where T : IReplicateData, new() where T2 : IReconcileData, new()
         {
-            while (replicatesQueue.Count > 0)
+            while (replicatesQueue != null && replicatesQueue.Count > 0)
             {
                 ReplicateDataContainer<T> dataContainer = replicatesQueue.Dequeue();
                 dataContainer.Dispose();
@@ -355,12 +355,12 @@ namespace FishNet.Object
                 lastReadReconcile.Dispose();
             lastReadReconcile = default;
 
-            for (int i = 0; i < replicatesHistory.Count; i++)
+            for (int i = 0; replicatesHistory != null && i < replicatesHistory.Count; i++)
             {
                 ReplicateDataContainer<T> dataContainer = replicatesHistory[i];
                 dataContainer.Dispose();
             }
-            replicatesHistory.Clear();
+            replicatesHistory?.Clear();
 
             ClearReconcileHistory(reconcilesHistory, uint.MaxValue);
         }
@@ -1422,6 +1422,9 @@ namespace FishNet.Object
         /// <param name="stopTick">Tick when encountered removals will stop.</param>
         private void ClearReconcileHistory<T>(RingBuffer<LocalReconcile<T>> reconcilesHistory, uint stopTick) where T : IReconcileData
         {
+            if (reconcilesHistory == null)
+                return;
+
             int removalCount = 0;
             foreach (LocalReconcile<T> localReconcile in reconcilesHistory)
             {

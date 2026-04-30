@@ -1,6 +1,7 @@
 using FishNet.Object.Prediction;
 using FishNet.Transporting;
 using FishNet.Utility.Template;
+using Networking;
 using UnityEngine;
 
 namespace Player
@@ -48,6 +49,7 @@ namespace Player
         }
 
         private PlayerController playerController;
+        private NetworkPlayer networkPlayer;
         private MoveData lastReplicateData;
         private bool jumpPressed;
         private bool dashPressed;
@@ -55,6 +57,7 @@ namespace Player
         private void Awake()
         {
             playerController = GetComponent<PlayerController>();
+            networkPlayer = GetComponent<NetworkPlayer>();
             SetTickCallbacks(TickCallback.Tick | TickCallback.PostTick);
         }
 
@@ -78,11 +81,21 @@ namespace Player
 
         protected override void TimeManager_OnTick()
         {
+            if (!CanSimulateGameplay())
+            {
+                return;
+            }
+
             PerformReplicate(BuildMoveData());
         }
 
         protected override void TimeManager_OnPostTick()
         {
+            if (!CanSimulateGameplay())
+            {
+                return;
+            }
+
             CreateReconcile();
         }
 
@@ -121,7 +134,7 @@ namespace Player
         [Replicate]
         private void PerformReplicate(MoveData moveData, ReplicateState state = ReplicateState.Invalid, Channel channel = Channel.Unreliable)
         {
-            if (playerController == null || !playerController.IsControllerEnabled)
+            if (!CanSimulateGameplay())
             {
                 return;
             }
@@ -161,6 +174,21 @@ namespace Player
         public void TeleportTo(Vector3 position, Quaternion rotation)
         {
             playerController?.TeleportTo(position, rotation);
+        }
+
+        private bool CanSimulateGameplay()
+        {
+            if (playerController == null || !playerController.IsControllerEnabled)
+            {
+                return false;
+            }
+
+            if (networkPlayer != null)
+            {
+                return networkPlayer.CanAct;
+            }
+
+            return GameSessionManager.IsGameplayActiveGlobal;
         }
     }
 }

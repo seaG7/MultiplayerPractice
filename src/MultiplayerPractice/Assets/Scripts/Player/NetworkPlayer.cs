@@ -30,6 +30,7 @@ public class NetworkPlayer : NetworkBehaviour
     private readonly SyncVar<int> health = new(100);
     private readonly SyncVar<bool> isAlive = new(true);
     private readonly SyncVar<uint> respawnEndTick = new(0u);
+    private readonly SyncVar<int> score = new(0);
 
     private PlayerController playerController;
     private PlayerMovementPrediction playerMovementPrediction;
@@ -39,11 +40,16 @@ public class NetworkPlayer : NetworkBehaviour
     private Coroutine respawnCoroutine;
     private uint nextServerAttackTick;
     private float nextLocalAttackTime;
+    private bool ownershipStateInitialized;
+    private bool lastAppliedCanAct;
+    private bool lastAppliedAlive;
 
     public string Nickname => nickname.Value;
     public int CurrentHealth => health.Value;
     public int MaxHealth => maxHealth;
     public bool IsAlive => isAlive.Value;
+    public int Score => score.Value;
+    public bool CanAct => IsAlive && GameSessionManager.IsGameplayActiveGlobal;
 
     private void Awake()
     {
@@ -56,6 +62,7 @@ public class NetworkPlayer : NetworkBehaviour
         health.OnChange += HandleHealthChanged;
         isAlive.OnChange += HandleAliveChanged;
         respawnEndTick.OnChange += HandleRespawnEndTickChanged;
+        score.OnChange += HandleScoreChanged;
 
         EnsureCameraTarget();
         EnsureVisualRoot();
@@ -68,10 +75,13 @@ public class NetworkPlayer : NetworkBehaviour
         health.OnChange -= HandleHealthChanged;
         isAlive.OnChange -= HandleAliveChanged;
         respawnEndTick.OnChange -= HandleRespawnEndTickChanged;
+        score.OnChange -= HandleScoreChanged;
     }
 
     public override void OnStartNetwork()
     {
+        GameSessionManager.SessionChanged += HandleSessionChanged;
+
         if (IsServerInitialized)
         {
             health.Value = maxHealth;
@@ -99,6 +109,8 @@ public class NetworkPlayer : NetworkBehaviour
 
     public override void OnStopNetwork()
     {
+        GameSessionManager.SessionChanged -= HandleSessionChanged;
+
         if (base.Owner.IsLocalClient)
         {
             ClearCamera();
@@ -113,6 +125,8 @@ public class NetworkPlayer : NetworkBehaviour
 
     private void LateUpdate()
     {
+        RefreshSessionStateIfNeeded();
+
         if (base.Owner.IsLocalClient)
         {
             RefreshInfoLabel();
@@ -123,7 +137,7 @@ public class NetworkPlayer : NetworkBehaviour
 
     public bool TryPerformAttack()
     {
-        if (!IsClientInitialized || !base.IsOwner || !IsAlive || attack == null || !attack.CanPlayAttackAnimation())
+        if (!IsClientInitialized || !base.IsOwner || !CanAct || attack == null || !attack.CanPlayAttackAnimation())
         {
             return false;
         }
@@ -141,12 +155,17 @@ public class NetworkPlayer : NetworkBehaviour
 
     public bool TryApplyDamageOnServer(int damage, int attackerClientId, Vector3 attackDirection)
     {
-        if (!IsServerInitialized || !IsAlive || attackerClientId == OwnerId)
+        if (!IsServerInitialized || !CanAct || attackerClientId == OwnerId)
         {
             return false;
         }
 
+        int previousHealth = health.Value;
         health.Value = Mathf.Max(0, health.Value - damage);
+        if (previousHealth > 0 && health.Value <= 0)
+        {
+            AwardScoreToAttacker(attackerClientId);
+        }
 
         if (attackDirection.sqrMagnitude <= 0.001f)
         {
@@ -160,7 +179,7 @@ public class NetworkPlayer : NetworkBehaviour
 
     public bool TryRestoreHealthOnServer(int amount)
     {
-        if (!IsServerInitialized || !IsAlive || health.Value >= maxHealth)
+        if (!IsServerInitialized || !CanAct || health.Value >= maxHealth)
         {
             return false;
         }
@@ -178,7 +197,7 @@ public class NetworkPlayer : NetworkBehaviour
     [ServerRpc]
     private void RequestAttackServerRpc()
     {
-        if (!IsAlive)
+        if (!CanAct)
         {
             return;
         }
@@ -189,6 +208,7 @@ public class NetworkPlayer : NetworkBehaviour
         }
 
         nextServerAttackTick = TimeManager.Tick + TimeManager.TimeToTicks(attackCooldown, TickRounding.RoundUp);
+        attack?.BeginAttackMovementLock();
         PlayAttackObserversRpc();
 
         NetworkPlayer target = FindAttackTarget();
@@ -225,6 +245,44 @@ public class NetworkPlayer : NetworkBehaviour
         playerController?.TeleportTo(position, rotation);
     }
 
+    public void SendSessionStateToOwner(GameSessionStateBroadcast snapshot)
+    {
+        if (!IsServerInitialized || !base.Owner.IsValid || NetworkObject == null || !NetworkObject.IsSpawned)
+        {
+            return;
+        }
+
+        ReceiveSessionStateTargetRpc(
+            base.Owner,
+            snapshot.State,
+            snapshot.ConnectedPlayers,
+            snapshot.RequiredPlayers,
+            snapshot.MatchTimer,
+            snapshot.LiveScoreText,
+            snapshot.ResultText);
+    }
+
+    [TargetRpc]
+    private void ReceiveSessionStateTargetRpc(
+        NetworkConnection target,
+        int state,
+        int connectedPlayers,
+        int requiredPlayers,
+        float matchTimer,
+        string liveScoreText,
+        string resultText)
+    {
+        GameSessionManager.ApplyRemoteState(new GameSessionStateBroadcast
+        {
+            State = state,
+            ConnectedPlayers = connectedPlayers,
+            RequiredPlayers = requiredPlayers,
+            MatchTimer = matchTimer,
+            LiveScoreText = liveScoreText,
+            ResultText = resultText
+        });
+    }
+
     private void HandleNicknameChanged(string previousValue, string newValue, bool asServer)
     {
         RefreshInfoLabel();
@@ -251,6 +309,49 @@ public class NetworkPlayer : NetworkBehaviour
     private void HandleRespawnEndTickChanged(uint previousValue, uint newValue, bool asServer)
     {
         RefreshInfoLabel();
+    }
+
+    private void HandleScoreChanged(int previousValue, int newValue, bool asServer)
+    {
+        RefreshInfoLabel();
+    }
+
+    private void HandleSessionChanged()
+    {
+        RefreshSessionState();
+    }
+
+    public void RefreshSessionState()
+    {
+        SetOwnershipState();
+        RefreshInfoLabel();
+    }
+
+    public void ResetForMatchOnServer(bool resetScore)
+    {
+        if (!IsServerInitialized)
+        {
+            return;
+        }
+
+        if (respawnCoroutine != null)
+        {
+            StopCoroutine(respawnCoroutine);
+            respawnCoroutine = null;
+        }
+
+        if (resetScore)
+        {
+            score.Value = 0;
+        }
+
+        GetRespawnPose(out Vector3 respawnPosition, out Quaternion respawnRotation);
+        TeleportForRespawn(respawnPosition, respawnRotation);
+
+        playerShooting?.RefillAmmoOnServer();
+        health.Value = maxHealth;
+        respawnEndTick.Value = 0u;
+        isAlive.Value = true;
     }
 
     private void HandleDeathOnServer()
@@ -324,8 +425,9 @@ public class NetworkPlayer : NetworkBehaviour
 
     private void SetOwnershipState()
     {
-        bool canControl = base.IsOwner && IsAlive;
-        bool shouldEnableController = IsAlive;
+        bool gameplayActive = GameSessionManager.IsGameplayActiveGlobal;
+        bool canControl = base.IsOwner && IsAlive && gameplayActive;
+        bool shouldEnableController = IsAlive && gameplayActive;
 
         if (playerController != null)
         {
@@ -341,6 +443,20 @@ public class NetworkPlayer : NetworkBehaviour
         if (playerShooting != null)
         {
             playerShooting.SetLocalInputEnabled(canControl);
+        }
+
+        ownershipStateInitialized = true;
+        lastAppliedCanAct = CanAct;
+        lastAppliedAlive = IsAlive;
+    }
+
+    private void RefreshSessionStateIfNeeded()
+    {
+        bool currentCanAct = CanAct;
+        bool currentAlive = IsAlive;
+        if (!ownershipStateInitialized || currentCanAct != lastAppliedCanAct || currentAlive != lastAppliedAlive)
+        {
+            SetOwnershipState();
         }
     }
 
@@ -363,9 +479,10 @@ public class NetworkPlayer : NetworkBehaviour
         {
             if (IsAlive)
             {
-                return playerShooting != null
+                string status = playerShooting != null
                     ? $"HP: {CurrentHealth} | Ammo: {playerShooting.CurrentAmmo}/{playerShooting.MaxAmmo}"
                     : $"HP: {CurrentHealth}";
+                return $"{status} | Score: {Score}";
             }
 
             uint currentTick = TimeManager.Tick;
@@ -373,10 +490,10 @@ public class NetworkPlayer : NetworkBehaviour
                 ? TimeManager.TicksToTime(respawnEndTick.Value - currentTick)
                 : 0d;
 
-            return $"Respawn: {remainingSeconds:0.0}s";
+            return $"Respawn: {remainingSeconds:0.0}s | Score: {Score}";
         }
 
-        return IsAlive ? $"HP: {CurrentHealth}" : "DEAD";
+        return IsAlive ? $"HP: {CurrentHealth} | Score: {Score}" : $"DEAD | Score: {Score}";
     }
 
     private void EnsureInfoLabel()
@@ -502,6 +619,31 @@ public class NetworkPlayer : NetworkBehaviour
         }
 
         return closestTarget;
+    }
+
+    private void AwardScoreToAttacker(int attackerClientId)
+    {
+        foreach (NetworkPlayer player in FindObjectsByType<NetworkPlayer>(FindObjectsSortMode.None))
+        {
+            if (player.OwnerId != attackerClientId)
+            {
+                continue;
+            }
+
+            player.AddScoreOnServer(1);
+            GameSessionManager.Instance?.NotifyScoreChanged();
+            return;
+        }
+    }
+
+    private void AddScoreOnServer(int amount)
+    {
+        if (!IsServerInitialized)
+        {
+            return;
+        }
+
+        score.Value = Mathf.Max(0, score.Value + amount);
     }
 
     private void SetNicknameInternal(string requestedNickname)

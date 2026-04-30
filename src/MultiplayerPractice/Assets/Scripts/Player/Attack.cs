@@ -8,6 +8,7 @@ namespace Player
         private PlayerController playerCont;
         private NetworkPlayer networkPlayer;
         private bool localInputEnabled;
+        [SerializeField] private float movementLockDuration = 0.45f;
 
         private void Awake()
         {
@@ -39,18 +40,24 @@ namespace Player
 
         public bool CanPlayAttackAnimation()
         {
-            return playerCont != null && playerCont.canMove && playerCont.charCont.isGrounded && !playerCont.IsDashing();
+            return playerCont != null && playerCont.CanStartAttack();
         }
 
         public void PlayAttackAnimation(bool ignoreStateChecks = false)
         {
-            if (!ignoreStateChecks && !CanPlayAttackAnimation())
+            if (playerCont == null || anim == null || !anim.gameObject.activeInHierarchy || (!ignoreStateChecks && !CanPlayAttackAnimation()))
             {
                 return;
             }
 
+            BeginAttackMovementLock();
             anim.CrossFade("Attack", 0.05f);
             playerCont.PlaySound("Attack");
+        }
+
+        public void BeginAttackMovementLock()
+        {
+            playerCont?.BeginActionLock(movementLockDuration);
         }
     }
 }

@@ -323,7 +323,7 @@ namespace FishNet.Object
             if (manager == null)
                 return;
 
-            if (_predictionBehaviours.Count == 0)
+            if (_predictionBehaviours == null || _predictionBehaviours.Count == 0)
                 return;
 
             if (subscribe)

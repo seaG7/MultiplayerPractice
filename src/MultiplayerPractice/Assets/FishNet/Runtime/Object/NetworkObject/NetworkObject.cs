@@ -1150,9 +1150,13 @@ namespace FishNet.Object
         /// </summary>
         public void ResetState(bool asServer)
         {
-            int count = NetworkBehaviours.Count;
+            int count = NetworkBehaviours?.Count ?? 0;
             for (int i = 0; i < count; i++)
-                NetworkBehaviours[i].ResetState(asServer);
+            {
+                NetworkBehaviour networkBehaviour = NetworkBehaviours[i];
+                if (networkBehaviour != null)
+                    networkBehaviour.ResetState(asServer);
+            }
 
             ResetState_Observers(asServer);
 

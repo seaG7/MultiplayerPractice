@@ -78,7 +78,7 @@ namespace Player
         [ServerRpc]
         private void ShootServerRpc(Vector3 position, Vector3 direction)
         {
-            if (projectilePrefab == null || networkPlayer == null || !networkPlayer.IsAlive || currentAmmo.Value <= 0)
+            if (projectilePrefab == null || networkPlayer == null || !networkPlayer.CanAct || currentAmmo.Value <= 0)
             {
                 return;
             }

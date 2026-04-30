@@ -70,7 +70,7 @@ namespace Networking
                 return;
             }
 
-            networkManager = InstanceFinder.NetworkManager ?? FindObjectOfType<NetworkManager>();
+            networkManager = InstanceFinder.NetworkManager ?? FindFirstObjectByType<NetworkManager>();
             if (networkManager == null)
             {
                 return;

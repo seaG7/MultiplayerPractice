@@ -89,6 +89,8 @@ namespace Networking
             {
                 networkManager.SceneManager.AddOwnerToDefaultScene(playerNetworkObject);
             }
+
+            GameSessionManager.Instance?.NotifyPlayerSpawned();
         }
 
         public bool TryGetSpawnPose(out Vector3 spawnPosition, out Quaternion spawnRotation)

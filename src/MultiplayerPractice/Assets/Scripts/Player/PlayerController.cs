@@ -27,6 +27,8 @@ namespace Player
             public bool WasGrounded;
             public bool Hit;
             public bool CanMove;
+            public float ActionLockRemaining;
+            public bool AnimationMoveLocked;
         }
 
         [HideInInspector] public CharacterController charCont;
@@ -57,10 +59,13 @@ namespace Player
         private Vector3 groundNormal;
         private bool hit;
         private bool localInputEnabled;
+        private float actionLockRemaining;
+        private bool animationMoveLocked;
 
         public Vector3 FacingForward => childPlayer != null ? childPlayer.transform.forward : transform.forward;
         public bool IsControllerEnabled => charCont != null && charCont.enabled;
         public bool HasLocalControl => localInputEnabled;
+        private bool CanUseAnimator => anim != null && anim.gameObject.activeInHierarchy;
 
         private void Awake()
         {
@@ -84,6 +89,7 @@ namespace Player
             }
 
             UpdateGroundState(delta, allowPresentationEvents);
+            UpdateActionLock(delta);
 
             if (hit)
             {
@@ -93,6 +99,7 @@ namespace Player
 
             if (!canMove)
             {
+                StopPlanarMotion();
                 moveDirection.y -= gravity * delta;
                 charCont.Move(moveDirection * delta);
                 return;
@@ -127,7 +134,9 @@ namespace Player
                 CanJump = canJump,
                 WasGrounded = wasGrounded,
                 Hit = hit,
-                CanMove = canMove
+                CanMove = canMove,
+                ActionLockRemaining = actionLockRemaining,
+                AnimationMoveLocked = animationMoveLocked
             };
         }
 
@@ -155,6 +164,8 @@ namespace Player
             wasGrounded = state.WasGrounded;
             hit = state.Hit;
             canMove = state.CanMove;
+            actionLockRemaining = state.ActionLockRemaining;
+            animationMoveLocked = state.AnimationMoveLocked;
 
             if (charCont != null)
             {
@@ -164,7 +175,7 @@ namespace Player
 
         private void UpdateGroundState(float delta, bool allowPresentationEvents)
         {
-            if (anim == null || charCont == null)
+            if (!CanUseAnimator || charCont == null)
             {
                 wasGrounded = charCont != null && charCont.isGrounded;
                 return;
@@ -233,9 +244,9 @@ namespace Player
 
             hit = false;
             canMove = true;
-            if (allowPresentationEvents)
+            if (allowPresentationEvents && CanUseAnimator)
             {
-                anim?.Play("Idle");
+                anim.Play("Idle");
             }
         }
 
@@ -274,7 +285,7 @@ namespace Player
             {
                 moveDirection.y = jumpSpeed;
                 canJump = false;
-                if (anim != null)
+                if (CanUseAnimator)
                 {
                     anim.SetFloat("SpeedY", moveDirection.y);
                     anim.SetBool("Jump", true);
@@ -329,7 +340,11 @@ namespace Player
                 canDash = false;
                 if (allowPresentationEvents)
                 {
-                    anim?.Play("Slide");
+                    if (CanUseAnimator)
+                    {
+                        anim.Play("Slide");
+                    }
+
                     PlaySound("Dash");
                 }
 
@@ -369,7 +384,7 @@ namespace Player
 
         private void UpdatePlanarAnimation(Vector2 planarInput)
         {
-            if (anim != null)
+            if (CanUseAnimator)
             {
                 anim.SetFloat("Speed", planarInput.magnitude);
             }
@@ -391,7 +406,10 @@ namespace Player
         public void AddImpact(Vector3 dir, float force)
         {
             moveDirection = Vector3.zero;
-            anim?.Play("Hit");
+            if (CanUseAnimator)
+            {
+                anim.Play("Hit");
+            }
 
             dir.Normalize();
             if (dir.y < 0f)
@@ -413,7 +431,9 @@ namespace Player
             canMove = false;
             PlaySound("Hit");
             currentDashTime = maxDashTime;
-            if (anim != null)
+            actionLockRemaining = 0f;
+            animationMoveLocked = false;
+            if (CanUseAnimator)
             {
                 anim.SetFloat("Speed", 0f);
                 AnimatorEvents animatorEvents = anim.GetComponent<AnimatorEvents>();
@@ -441,9 +461,8 @@ namespace Player
             charCont.enabled = enabled;
             if (!enabled)
             {
-                moveDirection = Vector3.zero;
+                StopPlanarMotion(resetVertical: true);
                 impact = Vector3.zero;
-                dashDir = Vector3.zero;
             }
         }
 
@@ -454,13 +473,15 @@ namespace Player
             dashDir = Vector3.zero;
             hit = false;
             canMove = true;
+            actionLockRemaining = 0f;
+            animationMoveLocked = false;
             canJump = true;
             canDash = true;
             wasGrounded = false;
             fallTime = 0f;
             currentDashTime = maxDashTime;
 
-            if (anim == null)
+            if (!CanUseAnimator)
             {
                 return;
             }
@@ -500,6 +521,8 @@ namespace Player
             impact = Vector3.zero;
             currentDashTime = maxDashTime;
             canDash = true;
+            actionLockRemaining = 0f;
+            animationMoveLocked = false;
         }
 
         public void TeleportTo(Vector3 position, Quaternion rotation)
@@ -562,6 +585,65 @@ namespace Player
             if (!hit)
             {
                 canMove = canMoveState;
+                if (canMoveState)
+                {
+                    animationMoveLocked = false;
+                    actionLockRemaining = 0f;
+                }
+                else
+                {
+                    animationMoveLocked = true;
+                    StopPlanarMotion();
+                }
+            }
+        }
+
+        public void BeginActionLock(float duration)
+        {
+            if (hit)
+            {
+                return;
+            }
+
+            actionLockRemaining = Mathf.Max(actionLockRemaining, duration);
+            canMove = false;
+            StopPlanarMotion();
+        }
+
+        private void UpdateActionLock(float delta)
+        {
+            if (actionLockRemaining <= 0f)
+            {
+                return;
+            }
+
+            actionLockRemaining = Mathf.Max(0f, actionLockRemaining - delta);
+            if (actionLockRemaining <= 0f && !hit && !animationMoveLocked)
+            {
+                canMove = true;
+            }
+        }
+
+        private void StopPlanarMotion(bool resetVertical = false)
+        {
+            moveDirection.x = 0f;
+            moveDirection.z = 0f;
+            dashDir = Vector3.zero;
+            currentDashTime = maxDashTime;
+
+            if (resetVertical)
+            {
+                moveDirection.y = 0f;
+            }
+
+            if (CanUseAnimator)
+            {
+                anim.SetFloat("Speed", 0f);
+            }
+
+            if (movIndicator != null)
+            {
+                movIndicator.transform.localPosition = Vector3.zero;
             }
         }
     }
