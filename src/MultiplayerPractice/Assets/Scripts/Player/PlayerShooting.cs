@@ -93,6 +93,12 @@ namespace Player
                 direction = transform.forward;
             }
 
+            int attackerClientId = base.Owner.ClientId;
+            if (attackerClientId < 0)
+            {
+                return;
+            }
+
             direction.Normalize();
             nextServerShotTick = TimeManager.Tick + TimeManager.TimeToTicks(cooldown, TickRounding.RoundUp);
             currentAmmo.Value--;
@@ -111,7 +117,7 @@ namespace Player
                 return;
             }
 
-            projectile.Initialize(direction);
+            projectile.Initialize(direction, attackerClientId);
             ServerManager.Spawn(projectileNetworkObject, base.Owner);
         }
 

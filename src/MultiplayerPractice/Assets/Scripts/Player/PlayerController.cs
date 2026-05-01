@@ -61,6 +61,7 @@ namespace Player
         private bool localInputEnabled;
         private float actionLockRemaining;
         private bool animationMoveLocked;
+        private bool ignoreAnimationMoveLocks;
 
         public Vector3 FacingForward => childPlayer != null ? childPlayer.transform.forward : transform.forward;
         public bool IsControllerEnabled => charCont != null && charCont.enabled;
@@ -451,6 +452,19 @@ namespace Player
             localInputEnabled = enabled;
         }
 
+        public void SetIgnoreAnimationMoveLocks(bool ignore)
+        {
+            ignoreAnimationMoveLocks = ignore;
+            if (!ignore || hit)
+            {
+                return;
+            }
+
+            canMove = true;
+            actionLockRemaining = 0f;
+            animationMoveLocked = false;
+        }
+
         public void SetControllerEnabled(bool enabled)
         {
             if (charCont == null || charCont.enabled == enabled)
@@ -582,6 +596,18 @@ namespace Player
 
         public void EnableMove(bool canMoveState)
         {
+            if (ignoreAnimationMoveLocks && !hit)
+            {
+                if (canMoveState)
+                {
+                    canMove = true;
+                    actionLockRemaining = 0f;
+                    animationMoveLocked = false;
+                }
+
+                return;
+            }
+
             if (!hit)
             {
                 canMove = canMoveState;

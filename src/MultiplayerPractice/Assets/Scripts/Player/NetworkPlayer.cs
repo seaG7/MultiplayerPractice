@@ -58,6 +58,8 @@ public class NetworkPlayer : NetworkBehaviour
         attack = GetComponent<Attack>();
         playerShooting = GetComponent<PlayerShooting>();
 
+        playerController?.SetIgnoreAnimationMoveLocks(true);
+
         nickname.OnChange += HandleNicknameChanged;
         health.OnChange += HandleHealthChanged;
         isAlive.OnChange += HandleAliveChanged;
@@ -167,8 +169,6 @@ public class NetworkPlayer : NetworkBehaviour
         {
             return;
         }
-
-        attack.BeginAttackMovementLock();
 
         if (allowPresentationEvents && base.IsOwner)
         {

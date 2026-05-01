@@ -14,15 +14,17 @@ namespace Networking
         private Rigidbody cachedRigidbody;
         private Vector3 moveDirection = Vector3.forward;
         private float despawnAtTime;
+        private int attackerClientId = -1;
 
         private void Awake()
         {
             cachedRigidbody = GetComponent<Rigidbody>();
         }
 
-        public void Initialize(Vector3 direction)
+        public void Initialize(Vector3 direction, int attackerClientId)
         {
             moveDirection = direction.sqrMagnitude > 0.001f ? direction.normalized : Vector3.forward;
+            this.attackerClientId = attackerClientId;
             transform.rotation = Quaternion.LookRotation(moveDirection);
         }
 
@@ -64,12 +66,13 @@ namespace Networking
             NetworkPlayer target = other.GetComponent<NetworkPlayer>() ?? other.GetComponentInParent<NetworkPlayer>();
             if (target != null)
             {
-                if (target.OwnerId == OwnerId || !target.IsAlive)
+                int sourceClientId = attackerClientId >= 0 ? attackerClientId : OwnerId;
+                if (sourceClientId < 0 || target.OwnerId == sourceClientId || !target.IsAlive)
                 {
                     return;
                 }
 
-                if (target.TryApplyDamageOnServer(damage, OwnerId, moveDirection))
+                if (target.TryApplyDamageOnServer(damage, sourceClientId, moveDirection))
                 {
                     DespawnProjectile();
                 }
