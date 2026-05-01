@@ -5371,7 +5371,7 @@ MonoBehaviour:
   Transport: {fileID: 1572223469}
   _intermediateLayer: {fileID: 0}
   _latencySimulator:
-    _enabled: 0
+    _enabled: 1
     _simulateHost: 1
     _latency: 200
     _outOfOrder: 0

@@ -536,9 +536,9 @@ namespace Player
             ResetMotionState();
         }
 
-        public bool CanStartAttack()
+        public bool CanStartAttack(bool requireLocalControl = true)
         {
-            return localInputEnabled &&
+            return (!requireLocalControl || localInputEnabled) &&
                    canMove &&
                    !hit &&
                    charCont != null &&

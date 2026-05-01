@@ -19,14 +19,13 @@ namespace Player
 
         private void Update()
         {
-            if (!localInputEnabled || !Input.GetButtonDown("Attack") || !CanPlayAttackAnimation())
+            if (networkPlayer != null)
             {
                 return;
             }
 
-            if (networkPlayer != null)
+            if (!localInputEnabled || !Input.GetButtonDown("Attack") || !CanPlayAttackAnimation())
             {
-                networkPlayer.TryPerformAttack();
                 return;
             }
 
@@ -43,14 +42,18 @@ namespace Player
             return playerCont != null && playerCont.CanStartAttack();
         }
 
-        public void PlayAttackAnimation(bool ignoreStateChecks = false)
+        public void PlayAttackAnimation(bool ignoreStateChecks = false, bool applyMovementLock = true)
         {
             if (playerCont == null || anim == null || !anim.gameObject.activeInHierarchy || (!ignoreStateChecks && !CanPlayAttackAnimation()))
             {
                 return;
             }
 
-            BeginAttackMovementLock();
+            if (applyMovementLock)
+            {
+                BeginAttackMovementLock();
+            }
+
             anim.CrossFade("Attack", 0.05f);
             playerCont.PlaySound("Attack");
         }

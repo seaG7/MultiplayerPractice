@@ -12,12 +12,13 @@ namespace Player
     {
         public struct MoveData : IReplicateData
         {
-            public MoveData(Vector2 move, float cameraYaw, bool jumpPressed, bool dashPressed)
+            public MoveData(Vector2 move, float cameraYaw, bool jumpPressed, bool dashPressed, bool attackPressed)
             {
                 Move = move;
                 CameraYaw = cameraYaw;
                 JumpPressed = jumpPressed;
                 DashPressed = dashPressed;
+                AttackPressed = attackPressed;
                 _tick = 0;
             }
 
@@ -25,6 +26,7 @@ namespace Player
             public float CameraYaw;
             public bool JumpPressed;
             public bool DashPressed;
+            public bool AttackPressed;
 
             private uint _tick;
             public void Dispose() { }
@@ -53,6 +55,7 @@ namespace Player
         private MoveData lastReplicateData;
         private bool jumpPressed;
         private bool dashPressed;
+        private bool attackPressed;
 
         private void Awake()
         {
@@ -76,6 +79,11 @@ namespace Player
             if (Input.GetButtonDown("Dash"))
             {
                 dashPressed = true;
+            }
+
+            if (Input.GetButtonDown("Attack") && networkPlayer != null && networkPlayer.TryQueuePredictedAttack())
+            {
+                attackPressed = true;
             }
         }
 
@@ -114,9 +122,10 @@ namespace Player
                 ? playerController.cam.transform.eulerAngles.y
                 : transform.eulerAngles.y;
 
-            MoveData moveData = new(move, cameraYaw, jumpPressed, dashPressed);
+            MoveData moveData = new(move, cameraYaw, jumpPressed, dashPressed, attackPressed);
             jumpPressed = false;
             dashPressed = false;
+            attackPressed = false;
             return moveData;
         }
 
@@ -150,7 +159,14 @@ namespace Player
                     moveData = lastReplicateData;
                     moveData.JumpPressed = false;
                     moveData.DashPressed = false;
+                    moveData.AttackPressed = false;
                 }
+            }
+
+            bool allowPresentationEvents = state.ContainsTicked() && !state.ContainsReplayed();
+            if (moveData.AttackPressed)
+            {
+                networkPlayer?.ProcessPredictedAttack(allowPresentationEvents);
             }
 
             PlayerController.SimulationInput input = new()
@@ -161,7 +177,6 @@ namespace Player
                 DashPressed = moveData.DashPressed
             };
 
-            bool allowPresentationEvents = state.ContainsTicked() && !state.ContainsReplayed();
             playerController.Simulate(input, (float)TimeManager.TickDelta, allowPresentationEvents);
         }
 

@@ -135,7 +135,7 @@ public class NetworkPlayer : NetworkBehaviour
         UpdateInfoLabelFacing();
     }
 
-    public bool TryPerformAttack()
+    public bool TryQueuePredictedAttack()
     {
         if (!IsClientInitialized || !base.IsOwner || !CanAct || attack == null || !attack.CanPlayAttackAnimation())
         {
@@ -148,9 +148,54 @@ public class NetworkPlayer : NetworkBehaviour
         }
 
         nextLocalAttackTime = Time.time + attackCooldown;
-        attack.PlayAttackAnimation();
-        RequestAttackServerRpc();
         return true;
+    }
+
+    public void ProcessPredictedAttack(bool allowPresentationEvents)
+    {
+        if (!CanAct || attack == null || playerController == null)
+        {
+            return;
+        }
+
+        if (IsServerInitialized && TimeManager.Tick < nextServerAttackTick)
+        {
+            return;
+        }
+
+        if (!playerController.CanStartAttack(requireLocalControl: false))
+        {
+            return;
+        }
+
+        attack.BeginAttackMovementLock();
+
+        if (allowPresentationEvents && base.IsOwner)
+        {
+            attack.PlayAttackAnimation(ignoreStateChecks: true, applyMovementLock: false);
+        }
+
+        if (!IsServerInitialized)
+        {
+            return;
+        }
+
+        nextServerAttackTick = TimeManager.Tick + TimeManager.TimeToTicks(attackCooldown, TickRounding.RoundUp);
+        PlayAttackObserversRpc();
+
+        NetworkPlayer target = FindAttackTarget();
+        if (target == null || target == this)
+        {
+            return;
+        }
+
+        Vector3 attackDirection = target.transform.position - transform.position;
+        if (attackDirection.sqrMagnitude <= 0.001f)
+        {
+            attackDirection = transform.forward;
+        }
+
+        target.TryApplyDamageOnServer(attackDamage, OwnerId, attackDirection.normalized);
     }
 
     public bool TryApplyDamageOnServer(int damage, int attackerClientId, Vector3 attackDirection)
@@ -194,42 +239,10 @@ public class NetworkPlayer : NetworkBehaviour
         SetNicknameInternal(requestedNickname);
     }
 
-    [ServerRpc]
-    private void RequestAttackServerRpc()
-    {
-        if (!CanAct)
-        {
-            return;
-        }
-
-        if (TimeManager.Tick < nextServerAttackTick)
-        {
-            return;
-        }
-
-        nextServerAttackTick = TimeManager.Tick + TimeManager.TimeToTicks(attackCooldown, TickRounding.RoundUp);
-        attack?.BeginAttackMovementLock();
-        PlayAttackObserversRpc();
-
-        NetworkPlayer target = FindAttackTarget();
-        if (target == null || target == this)
-        {
-            return;
-        }
-
-        Vector3 attackDirection = target.transform.position - transform.position;
-        if (attackDirection.sqrMagnitude <= 0.001f)
-        {
-            attackDirection = transform.forward;
-        }
-
-        target.TryApplyDamageOnServer(attackDamage, OwnerId, attackDirection.normalized);
-    }
-
     [ObserversRpc(ExcludeOwner = true)]
     private void PlayAttackObserversRpc()
     {
-        attack?.PlayAttackAnimation(true);
+        attack?.PlayAttackAnimation(ignoreStateChecks: true, applyMovementLock: false);
     }
 
     [ObserversRpc(ExcludeServer = true)]
